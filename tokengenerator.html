@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Vícefázový Šifrovač</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<style>
+body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    padding: 20px; 
+    background-color: #121212; 
+    color: #e0f2e9;
+}
+
+h1 { text-align: center; color: #4caf50; }
+
+textarea, input, select { 
+    width: 100%; 
+    margin-bottom: 10px; 
+    padding: 10px; 
+    border-radius: 8px; 
+    border: none; 
+    background-color: #1e1e1e; 
+    color: #e0f2e9; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+button { 
+    padding: 10px 15px; 
+    margin: 5px 0; 
+    border-radius: 8px; 
+    border: none; 
+    cursor: pointer; 
+    background-color: #4caf50; 
+    color: #121212; 
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+button:hover { 
+    background-color: #45a049; 
+}
+
+.token-row { 
+    display: flex; 
+    margin-bottom: 5px; 
+    gap: 5px; 
+}
+
+.token-row input { flex: 1; }
+
+label { font-weight: bold; margin-top: 10px; display: block; }
+</style>
+</head>
+<body>
+<h1>Vícefázový Šifrovač / Dešifrovač</h1>
+
+<label>Počet šifrovacích cyklů:</label>
+<select id="cycles" onchange="renderTokens()"></select>
+
+<button onclick="generateAllTokens()">Vygenerovat všechny tokeny</button>
+
+<div id="tokens-container"></div>
+
+<label>Text pro šifrování / dešifrování:</label>
+<textarea id="text" rows="4"></textarea>
+
+<button onclick="encryptText()">Šifrovat</button>
+<button onclick="decryptText()">Dešifrovat</button>
+
+<h3>Výsledek:</h3>
+<textarea id="result" rows="4" readonly></textarea>
+
+<script>
+function initCycles() {
+    const select = document.getElementById('cycles');
+    for(let i=1; i<=20; i++){
+        const option = document.createElement('option');
+        option.value = i;
+        option.text = i;
+        if(i===3) option.selected = true;
+        select.appendChild(option);
+    }
+}
+
+function generateToken(id) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for(let i=0; i<16; i++){
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.getElementById(id).value = token;
+}
+
+function copyToken(id) {
+    const token = document.getElementById(id).value;
+    if(token){
+        navigator.clipboard.writeText(token).then(() => alert(`Token zkopírován!`));
+    } else {
+        alert("Token je prázdný!");
+    }
+}
+
+function generateAllTokens() {
+    const cycles = parseInt(document.getElementById('cycles').value);
+    for(let i=1; i<=cycles; i++){
+        generateToken(`token${i}`);
+    }
+}
+
+function renderTokens() {
+    const container = document.getElementById('tokens-container');
+    container.innerHTML = '';
+    const cycles = parseInt(document.getElementById('cycles').value);
+    for(let i=1; i<=cycles; i++){
+        const div = document.createElement('div');
+        div.className = 'token-row';
+        div.innerHTML = `
+            <input type="text" id="token${i}" placeholder="Token ${i}">
+            <button onclick="generateToken('token${i}')">Vygenerovat</button>
+            <button onclick="copyToken('token${i}')">Zkopírovat</button>
+        `;
+        container.appendChild(div);
+    }
+}
+
+function encrypt(text, token) {
+    const key = CryptoJS.enc.Utf8.parse(token.padEnd(32, ' '));
+    return CryptoJS.AES.encrypt(text, key, { mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7 }).toString();
+}
+
+function decrypt(text, token) {
+    const key = CryptoJS.enc.Utf8.parse(token.padEnd(32, ' '));
+    const bytes = CryptoJS.AES.decrypt(text, key, { mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7 });
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    if(!decrypted) throw "Špatný token nebo text!";
+    return decrypted;
+}
+
+function encryptText() {
+    let text = document.getElementById('text').value;
+    const cycles = parseInt(document.getElementById('cycles').value);
+    if(!text){ alert("Vyplň text!"); return; }
+
+    for(let i=1; i<=cycles; i++){
+        const token = document.getElementById(`token${i}`).value;
+        if(!token){ alert(`Vyplň token ${i}!`); return; }
+        text = encrypt(text, token);
+    }
+    document.getElementById('result').value = text;
+}
+
+function decryptText() {
+    let text = document.getElementById('text').value;
+    const cycles = parseInt(document.getElementById('cycles').value);
+    if(!text){ alert("Vyplň text!"); return; }
+
+    try {
+        for(let i=cycles; i>=1; i--){
+            const token = document.getElementById(`token${i}`).value;
+            if(!token){ alert(`Vyplň token ${i}!`); return; }
+            text = decrypt(text, token);
+        }
+        document.getElementById('result').value = text;
+    } catch(e) {
+        alert("Nepodařilo se dešifrovat. Zkontroluj tokeny a text.");
+    }
+}
+
+// inicializace select boxu a tokenů
+initCycles();
+renderTokens();
+</script>
+</body>
+</html>
