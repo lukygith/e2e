@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Dnešní slova</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #76c893;
+      margin-bottom: 20px;
+    }
+
+    #status {
+      text-align: center;
+      margin-bottom: 20px;
+      font-style: italic;
+      color: #bbb;
+    }
+
+    #words {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      list-style: none;
+      padding: 0;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    #words li {
+      background: #1f1f1f;
+      border: 2px solid #76c893;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      user-select: none;
+    }
+
+    #words li:hover {
+      background: #76c893;
+      color: #121212;
+      transform: scale(1.05);
+    }
+
+    .number {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .copied {
+      background: #1f1f1f !important;
+      color: #e0e0e0 !important;
+      border-color: #76c893 !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dnešní slova</h1>
+  <div id="status">Načítám…</div>
+  <ul id="words"></ul>
+
+  <script>
+    async function loadWords() {
+      const statusEl = document.getElementById('status');
+      try {
+        const res = await fetch("https://json.lukkesa.fun/slova.json", { cache: "no-store" });
+        if (!res.ok) throw new Error('Server vrátil chybu: ' + res.status + ' ' + res.statusText);
+
+        const data = await res.json();
+        if (!data || !Array.isArray(data.words)) throw new Error('Neočekávaný formát JSON (chybí pole "words")');
+
+        const words = data.words;
+
+        const today = new Date();
+        const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+
+        function seededRandom(s) {
+          let x = Math.sin(s) * 10000;
+          return x - Math.floor(x);
+        }
+
+        let chosen = [];
+        let used = new Set();
+        for (let i = 0; i < 20; i++) {
+          let rnd = Math.floor(seededRandom(seed + i) * words.length);
+          while (used.has(rnd)) {
+            rnd = (rnd + 1) % words.length;
+          }
+          used.add(rnd);
+          chosen.push(words[rnd]);
+        }
+
+        const list = document.getElementById("words");
+        list.innerHTML = '';
+
+        chosen.forEach((word, index) => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span class="number">${index+1}.</span> ${word}`;
+          li.addEventListener("click", () => {
+            navigator.clipboard.writeText(word).then(() => {
+              li.classList.add("copied");
+              setTimeout(() => li.classList.remove("copied"), 300);
+            });
+          });
+          list.appendChild(li);
+        });
+
+        statusEl.textContent = 'Hotovo — slova pro ' + today.toLocaleDateString();
+      } catch (err) {
+        console.error(err);
+        statusEl.innerHTML = '<span style="color:red">Chyba: ' + (err.message || err) + '</span>';
+        document.getElementById("words").innerHTML = '';
+      }
+    }
+
+    loadWords();
+  </script>
+</body>
+</html>
